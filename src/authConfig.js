@@ -4,7 +4,7 @@ export const msalConfig = {
   auth: {
     clientId: "cca90012-2e7f-4f2e-aaf0-6ad4069cac0f",
     authority: "https://login.microsoftonline.com/36da45f1-dd2c-4d1f-af13-5abe46b99921",
-    redirectUri: "http://10.169.224.54:3000", // Add your production URI later too
+    redirectUri: "https://qwikdeployversion2.vercel.app/", // Add your production URI later too
   },
   cache: {
     cacheLocation: "sessionStorage",
