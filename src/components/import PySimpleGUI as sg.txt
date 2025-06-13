@@ -1,0 +1,214 @@
+import PySimpleGUI as sg
+import pandas as pd
+import requests
+import json
+import base64 # Still needed for potential future use, but not calculating header here
+from datetime import datetime
+import concurrent.futures
+import threading
+import time
+import queue  # For communicating between threads
+
+# ---! CONFIGURATION - LESS HARDCODING NOW !---
+
+# 1. Column Name in CSV
+GUID_COLUMN_NAME = 'USER_GUID'
+
+# 2. HCM Instance Details (Now mostly UI inputs)
+#    We still define the *specific* action path here, assuming it's less likely to change
+#    !!! THIS IS THE MOST LIKELY POINT OF FAILURE - VERIFY THE EXACT ACTION PATH !!!
+ACTION_PATH = "/action/updatePassword" # MAKE SURE THIS IS STILL CORRECT
+
+# 3. Authentication Credentials (Now UI inputs)
+#    AUTH_USER / AUTH_PASS removed
+
+# 4. Script Behavior
+MAX_WORKERS = 10             # Adjust concurrency
+REQUEST_TIMEOUT = 45        # Timeout for each request in seconds
+# ---! END OF CONFIGURATION !---
+
+
+# --- Password Update Logic (Modified for UI Threading) ---
+
+# This function runs FOR EACH GUID inside the worker threads
+def update_password_worker(guid, base_url, action_path, auth_header_value, common_password, output_queue):
+    # Basic validation
+    if not guid or not isinstance(guid, str):
+        output_queue.put(f"WARN : Skipping invalid GUID entry: {guid}")
+        return
+
+    thread_id = threading.get_ident()
+    log_prefix = f"GUID: {guid} (Thread-{thread_id})"
+
+    # Construct URL from parts passed in
+    url = f"{base_url.rstrip('/')}/{guid.strip()}{action_path}" # Ensure no double slashes
+
+    # Prepare payload and headers INSIDE the worker function using inputs
+    payload = json.dumps({"pwd": common_password}) # Verify if the key is exactly "pwd"
+    headers = {
+        'Content-Type': 'application/vnd.oracle.adf.action+json', # Verify if correct for this action
+        'Authorization': auth_header_value # Use the direct header value from UI
+    }
+
+    try:
+        output_queue.put(f"INFO : {log_prefix} - Sending POST to .../{url.split('/')[-3]}...") # Obscure full URL
+        response = requests.post(url, headers=headers, data=payload, timeout=REQUEST_TIMEOUT)
+
+        if response.status_code == 200:
+            output_queue.put(f"INFO : {log_prefix} - SUCCESS (Status: {response.status_code})")
+        else:
+            error_details = response.text # Get raw text response body
+            log_body = (error_details[:500] + '...' ) if len(error_details) > 500 else error_details
+            output_queue.put(
+                f"ERROR: {log_prefix} - FAILED (Status: {response.status_code})\n"
+                f"       URL Tail: .../{url.split('/')[-3]}/{url.split('/')[-2]}/{url.split('/')[-1]}\n"
+                f"       Response Body (truncated):\n{log_body}"
+            )
+
+    except requests.exceptions.Timeout:
+        output_queue.put(f"ERROR: {log_prefix} - FAILED: Request timed out ({REQUEST_TIMEOUT}s). URL Tail: .../{url.split('/')[-3]}/...")
+    except requests.exceptions.RequestException as e:
+        output_queue.put(f"ERROR: {log_prefix} - FAILED: Network/Request error: {e}. URL Tail: .../{url.split('/')[-3]}/...")
+    except Exception as e:
+        output_queue.put(f"ERROR: {log_prefix} - FAILED: An unexpected error occurred: {e}")
+
+# This function runs in a SEPARATE THREAD to manage the overall process
+# It now takes base_url and auth_header_value from the UI
+def run_password_reset_thread(csv_path, new_password, base_url, auth_header_value, output_queue):
+    output_queue.put("INFO : ----- Password Reset Process Started -----")
+    output_queue.put(f"INFO : Target Base URL: {base_url}")
+    output_queue.put(f"INFO : Reading CSV: {csv_path}")
+
+    # --- Read GUIDs from CSV ---
+    try:
+        data = pd.read_csv(csv_path, engine='python', encoding='utf-8-sig')
+        if GUID_COLUMN_NAME not in data.columns:
+            output_queue.put(f"ERROR: Column '{GUID_COLUMN_NAME}' not found in {csv_path}!")
+            output_queue.put("INFO : ----- Process Aborted -----")
+            output_queue.put("DONE") # Signal completion even on error
+            return
+        guid_list = data[GUID_COLUMN_NAME].dropna().astype(str).tolist()
+        output_queue.put(f"INFO : Read {len(guid_list)} GUIDs.")
+    except FileNotFoundError:
+        output_queue.put(f"ERROR: CSV file not found: {csv_path}")
+        output_queue.put("INFO : ----- Process Aborted -----")
+        output_queue.put("DONE")
+        return
+    except Exception as e:
+        output_queue.put(f"ERROR: Error reading CSV: {e}")
+        output_queue.put("INFO : ----- Process Aborted -----")
+        output_queue.put("DONE")
+        return
+
+    if not guid_list:
+        output_queue.put("WARN : No valid GUIDs found in the file to process.")
+        output_queue.put("INFO : ----- Process Finished -----")
+        output_queue.put("DONE")
+        return
+
+    # --- Execute Concurrently ---
+    output_queue.put(f"INFO : Starting password update with {MAX_WORKERS} workers...")
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # Create futures by submitting tasks, passing the necessary args
+            futures = [executor.submit(update_password_worker,
+                                       guid,
+                                       base_url,
+                                       ACTION_PATH, # Pass the action path constant
+                                       auth_header_value,
+                                       new_password,
+                                       output_queue)
+                       for guid in guid_list]
+            concurrent.futures.wait(futures) # Wait for all threads to finish
+        output_queue.put("INFO : All workers finished.")
+    except Exception as e:
+        output_queue.put(f"ERROR: An error occurred during thread execution: {e}")
+
+    output_queue.put("INFO : ----- Password Reset Process Finished -----")
+    output_queue.put("DONE") # Signal completion
+
+
+# --- GUI Layout ---
+sg.theme('SystemDefaultForReal') # Use a default theme
+
+# Default values for easier use - replace with your known working ones
+default_base_url = "https://geduglobal-iabmbn-dev1.fa.ocs.oraclecloud.com:443/hcmRestApi/resources/11.13.18.05/userAccounts"
+default_auth_header = "Basic RGVsb2l0dGUuQWRtaW46V2VsY29tZUAxMjM0" # Example! Use your real one.
+
+layout = [
+    [sg.Text("Select User GUID CSV File:")],
+    [sg.Input(key='-CSV-', size=(60,1)), sg.FileBrowse(file_types=(("CSV Files", "*.csv"),))],
+    [sg.Text("Oracle HCM Base URL (e.g., https://.../userAccounts):")],
+    [sg.Input(key='-BASE_URL-', size=(60,1), default_text=default_base_url)],
+    [sg.Text("Authorization Header (Format: Basic YourBase64String):")],
+    [sg.Input(key='-AUTH_HEADER-', size=(60,1), default_text=default_auth_header)],
+    [sg.Text("Enter New Common Password:")],
+    [sg.Input(key='-PASSWORD-', size=(30,1), password_char='*')],
+    [sg.Button("Run Password Reset", key='-RUN-'), sg.Button("Close")],
+    [sg.Text("_" * 80)], # Separator line
+    [sg.Text("Output Log:")],
+    [sg.Multiline(key='-OUTPUT-', size=(80, 20), autoscroll=True, reroute_stdout=False, write_only=False, disabled=True)] # Output area
+]
+
+# --- Create Window ---
+window = sg.Window('Fusion HCM Bulk Password Reset (v2)', layout)
+
+# --- Event Loop ---
+worker_thread = None
+output_queue = queue.Queue()
+
+while True:
+    event, values = window.read(timeout=100) # Read events with a timeout to check queue
+
+    # --- Check for messages from worker thread ---
+    try:
+        message = output_queue.get_nowait()
+        if message == "DONE":
+            window['-RUN-'].update(disabled=False) # Re-enable button
+            sg.popup("Process Finished!", "The password reset process has completed. Check the output log for details.", title="Finished")
+        else:
+            window['-OUTPUT-'].update(value=message + '\n', append=True) # Append message to output
+            window.refresh() # Force UI update if needed
+    except queue.Empty:
+        pass # No message from worker thread
+
+    # --- Handle GUI Events ---
+    if event == sg.WIN_CLOSED or event == 'Close':
+        if worker_thread and worker_thread.is_alive():
+            sg.popup_error("Process is still running!", "Please wait for the current password reset process to finish before closing.", title="Warning")
+        else:
+            break # Exit loop
+
+    if event == '-RUN-':
+        csv_file = values['-CSV-']
+        new_pass = values['-PASSWORD-']
+        base_url = values['-BASE_URL-']
+        auth_header = values['-AUTH_HEADER-']
+
+        # Input Validation
+        if not csv_file:
+            sg.popup_error("Please select a CSV file.", title="Input Missing")
+            continue
+        if not base_url:
+            sg.popup_error("Please enter the Base URL.", title="Input Missing")
+            continue
+        if not auth_header or not auth_header.lower().startswith("basic "):
+            sg.popup_error("Please enter the full Authorization Header, starting with 'Basic '.", title="Input Invalid")
+            continue
+        if not new_pass:
+            sg.popup_error("Please enter the new password.", title="Input Missing")
+            continue
+
+        # Disable run button, clear output
+        window['-RUN-'].update(disabled=True)
+        window['-OUTPUT-'].update(value='') # Clear previous output
+
+        # Start the worker thread with the new arguments
+        worker_thread = threading.Thread(
+            target=run_password_reset_thread,
+            args=(csv_file, new_pass, base_url, auth_header, output_queue),
+            daemon=True
+        )
+        worker_thread.start()
+
+window.close()

@@ -1,0 +1,92 @@
+.vertical-navbar {
+  width: 212px;
+  height: calc(100vh - 57px); /* Placeholder height, adjust later */
+  position: fixed; /* Keep fixed for now, adjust later */
+  top: 65px; /* Placeholder top, adjust later */
+  left: 0;
+  background: white;
+  border-right: 1px solid black;
+  z-index: 100;
+  box-sizing: border-box;
+  /* Ensure content is visible */
+  overflow-y: auto; /* Allow scrolling if needed */
+  display: block; /* Ensure it’s a block element */
+}
+
+.nav-link {
+  text-decoration: none;
+  display: block; /* Ensure each link takes full width */
+}
+
+.nav-item {
+  width: 210px;
+  height: 40px;
+  padding-left: 24px;
+  padding-right: 24px;
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.3s;
+  /* Remove absolute positioning */
+  position: static; /* Stack naturally */
+}
+
+.nav-item.active {
+  background: #0076A8;
+}
+
+.nav-icon {
+  fill: rgba(51, 50, 50, 0.85);
+}
+
+.active .nav-icon {
+  fill: #FFFFFF;
+}
+
+.nav-text {
+  color: rgba(51, 50, 50, 0.77);
+  font-size: 14px;
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 400;
+  line-height: 22px;
+}
+
+.active .nav-text {
+  color: #FFFFFF;
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+  .vertical-navbar {
+    width: 150px;
+    height: calc(100vh - 57px);
+  }
+
+  .nav-item {
+    width: 148px;
+    padding-left: 16px;
+    padding-right: 16px;
+    height: 36px;
+  }
+
+  .nav-text {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .vertical-navbar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    top: 0; /* Adjust later */
+    border-right: none;
+    border-bottom: 1px solid black;
+  }
+
+  .nav-item {
+    width: 100%;
+    height: 36px;
+  }
+}

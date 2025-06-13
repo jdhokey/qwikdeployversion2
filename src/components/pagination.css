@@ -1,0 +1,20 @@
+.pagination {
+    display: flex;
+    justify-content: center;
+    list-style: none;
+    padding: 10px;
+  }
+  
+  .pagination li {
+    margin: 0 5px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 5px;
+    background: #f1f1f1;
+  }
+  
+  .pagination .active {
+    background: #007bff;
+    color: white;
+  }
+  

@@ -1,0 +1,84 @@
+/* ProgressTimeline.css */
+.progress-timeline-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .progress-timeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 800px; /* Adjust based on your design */
+    margin: 20px 0;
+    position: relative; /* For the faint grey line */
+  }
+  
+  .timeline-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  
+  .step-circle {
+    width: 24px; /* Adjust size based on Figma design */
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    transition: background-color 0.3s, border 0.3s;
+  }
+  
+  .step-circle.completed {
+    background-color: #007CB0; /* Updated to match button blue */
+    color: white;
+    border: 2px solid #007CB0;
+  }
+  
+  .step-circle.active {
+    background-color: white;
+    border: 2px solid #007CB0; /* Updated to match button blue */
+    color: #007CB0;
+  }
+  
+  .step-circle.inactive {
+    background-color: white;
+    border: 2px solid #ccc; /* Grey for inactive steps */
+    color: #ccc;
+  }
+  
+  /* Faint grey line connecting all circles */
+  .progress-timeline::before {
+    content: '';
+    position: absolute;
+    top: 11px; /* Center vertically with the circles */
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: #e0e0e0; /* Faint grey line */
+    z-index: -1;
+  }
+  
+  /* Blue line for completed steps (overrides faint grey for completed sections) */
+  .timeline-step:not(:last-child) .step-line {
+    height: 2px;
+    background-color: #007CB0; /* Updated to match button blue */
+    width: 100px; /* Adjust based on spacing in your design */
+    position: absolute;
+    top: 11px; /* Center the line vertically with the circle */
+    left: 50%;
+    transform: translateX(50%);
+    z-index: 0;
+  }
+  
+  /* Style the labels below the circles */
+  .step-label {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #333;
+  }
