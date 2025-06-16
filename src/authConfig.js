@@ -3,8 +3,8 @@ import { LogLevel } from "@azure/msal-browser";
 export const msalConfig = {
   auth: {
     clientId: "cca90012-2e7f-4f2e-aaf0-6ad4069cac0f",
-    authority: "https://login.microsoftonline.com/36da45f1-dd2c-4d1f-af13-5abe46b99921", // removed /saml2
-    redirectUri: "https://qwikdeployversion2.vercel.app/",
+    authority: "https://login.microsoftonline.com/36da45f1-dd2c-4d1f-af13-5abe46b99921", // ✅ OIDC authority — removed /saml2
+    redirectUri: "https://qwikdeployversion2.vercel.app/", // your deployed URL
   },
   cache: {
     cacheLocation: "sessionStorage",
@@ -34,5 +34,5 @@ export const msalConfig = {
 };
 
 export const loginRequest = {
-  scopes: ["User.Read"],
+  scopes: ["User.Read"], // adjust if needed
 };
