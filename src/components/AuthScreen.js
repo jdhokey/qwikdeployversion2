@@ -9,7 +9,7 @@ const AuthScreen = () => {
   const navigate = useNavigate();
   const { instance, accounts } = useMsal();
 
-  // Automatically navigate to /projects if user is authenticated
+  // Redirect to /projects if already logged in
   useEffect(() => {
     if (accounts.length > 0) {
       navigate("/projects");
@@ -40,7 +40,7 @@ const AuthScreen = () => {
           <img src={logo1} alt="Illustration" style={{ width: "100%", maxWidth: 400, height: "auto" }} />
         </div>
 
-        {/* Form */}
+        {/* Sign-in Button */}
         <div style={{ flex: "1 1 400px", display: "flex", flexDirection: "column", alignItems: "center", padding: 20 }}>
           <div style={{ width: "100%", maxWidth: 500 }}>
             <button
@@ -67,11 +67,7 @@ const AuthScreen = () => {
 
       {/* Footer */}
       <div style={{ padding: "20px 40px", fontSize: 12, color: "black", textAlign: "center", fontFamily: "Open Sans", background: "#f9f9f9" }}>
-        Deloitte refers to one or more of Deloitte Touche Tohmatsu Limited, a UK private company limited by guarantee (“DTTL”), its network of member firms, and their related entities. DTTL and each of its member firms are legally separate and independent entities. DTTL (also referred to as “Deloitte Global”) does not provide services to clients. Please see www.deloitte.com/about for a more detailed description of DTTL and its member firms.
-        <br /><br />
-        The information contained in this material is meant for internal purposes and use only among personnel of Deloitte Touche Tohmatsu Limited, its member firms, and their related entities (collectively, the “Deloitte Network”). The recipient is strictly prohibited from further circulation of this material. Any breach of this requirement may invite disciplinary action (which may include dismissal) and/or prosecution. None of the Deloitte Network shall be responsible for any loss whatsoever sustained by any person who relies on this material.
-        <br /><br />
-        © 2024 Deloitte Shared Services India LLP
+        {/* Footer content here */}
       </div>
     </div>
   );
